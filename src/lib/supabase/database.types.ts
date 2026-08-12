@@ -379,6 +379,41 @@ export type Database = {
           },
         ];
       };
+      paste_mappings: {
+        Row: {
+          id: string;
+          brand_id: string;
+          channel_type: string;
+          mapping: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          brand_id: string;
+          channel_type: string;
+          mapping?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          brand_id?: string;
+          channel_type?: string;
+          mapping?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'paste_mappings_brand_id_fkey';
+            columns: ['brand_id'];
+            isOneToOne: false;
+            referencedRelation: 'brands';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       metric_values: {
         Row: {
           id: string;

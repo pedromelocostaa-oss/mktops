@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: '/dados', label: 'Dados' },
   { href: '/conteudo', label: 'Conteudo' },
   { href: '/relatorios', label: 'Relatorios' },
+  { href: '/canais', label: 'Canais' },
 ];
 
 export default function Nav({

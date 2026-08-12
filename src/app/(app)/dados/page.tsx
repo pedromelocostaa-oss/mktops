@@ -20,7 +20,7 @@ export default async function DadosPage() {
 
   const pubIds = (publications || []).map((p: Record<string, unknown>) => p.id as string);
 
-  const [metricValues, metricDefs, lastReport] = await Promise.all([
+  const [metricValues, metricDefs, lastReport, savedMappings] = await Promise.all([
     supabase
       .from('metric_values')
       .select('*')
@@ -44,6 +44,10 @@ export default async function DadosPage() {
       .order('taken_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
+    supabase
+      .from('paste_mappings')
+      .select('channel_type, mapping')
+      .eq('brand_id', brand.id),
   ]);
 
   return (
@@ -54,6 +58,7 @@ export default async function DadosPage() {
       metricDefs={(metricDefs.data as Record<string, unknown>[]) || []}
       lastSnapshotAt={lastReport.data?.taken_at as string | null}
       brandId={brand.id}
+      savedMappings={(savedMappings.data || []) as Record<string, unknown>[]}
     />
   );
 }

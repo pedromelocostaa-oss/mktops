@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { CHANNEL_META, METRIC_HINTS } from '@/lib/config';
 import CoverageBar from '@/components/coverage-bar';
 import ChannelBadge from '@/components/channel-badge';
+import Toast from '@/components/toast';
 
 interface Props {
   publications: Record<string, unknown>[];
@@ -39,6 +40,7 @@ export default function RegistrarClient({
   const [saving, setSaving] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [warning, setWarning] = useState<Record<string, string>>({});
+  const [toast, setToast] = useState<string | null>(null);
 
   // New publication form
   const [newChannelId, setNewChannelId] = useState('');
@@ -228,10 +230,15 @@ export default function RegistrarClient({
     });
 
     if (!error) {
+      const isFirst = totalPubs === 0;
       router.refresh();
       setShowCreate(false);
       setNewTitle('');
       setNewChannelId('');
+      if (isFirst) {
+        const remaining = Math.max(0, Math.ceil(1 * 0.7) - 0);
+        setToast(`Primeira publicacao registrada! Preencha os dados para gerar seu relatorio.`);
+      }
     }
     setSaving(false);
   }
@@ -333,6 +340,11 @@ export default function RegistrarClient({
       </div>
     );
   }
+
+  // Toast for first publication feedback
+  const toastElement = toast ? (
+    <Toast message={toast} onDone={() => setToast(null)} />
+  ) : null;
 
   // Main registration flow
   const pubDate = current.published_at
@@ -481,6 +493,7 @@ export default function RegistrarClient({
           </button>
         </div>
       </div>
+      {toastElement}
     </div>
   );
 }

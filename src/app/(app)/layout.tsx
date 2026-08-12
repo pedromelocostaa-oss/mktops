@@ -1,5 +1,6 @@
 import { getUserContext } from '@/lib/data';
 import Nav from '@/components/nav';
+import HelpButtonWrapper from '@/components/help-button-wrapper';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const ctx = await getUserContext();
@@ -12,6 +13,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         userRole={ctx.membership.role}
       />
       <main className="flex-1 ml-60 p-8">{children}</main>
+      <HelpButtonWrapper />
     </div>
   );
 }

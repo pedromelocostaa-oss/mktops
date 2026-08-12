@@ -94,20 +94,35 @@ export default function ConteudoClient({
     <div>
       <h1 className="text-2xl font-semibold text-ink mb-6">Conteudo</h1>
 
-      {/* Filters */}
-      <div className="flex gap-3 mb-6">
-        <select
-          value={filterChannel}
-          onChange={(e) => setFilterChannel(e.target.value)}
-          className="border border-line rounded-sm px-3 py-1.5 text-sm text-ink bg-surface focus:outline-none focus:border-brand"
+      {/* Channel tabs */}
+      <div className="flex gap-1 mb-4 border-b border-line">
+        <button
+          onClick={() => setFilterChannel('all')}
+          className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+            filterChannel === 'all'
+              ? 'border-brand text-brand'
+              : 'border-transparent text-ink-soft hover:text-ink'
+          }`}
         >
-          <option value="all">Todos os canais</option>
-          {channels.map((ch) => (
-            <option key={ch.id as string} value={ch.id as string}>
-              {CHANNEL_META[ch.type as string]?.label || String(ch.type)}
-            </option>
-          ))}
-        </select>
+          Todos
+        </button>
+        {channels.map((ch) => (
+          <button
+            key={ch.id as string}
+            onClick={() => setFilterChannel(ch.id as string)}
+            className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+              filterChannel === ch.id
+                ? 'border-brand text-brand'
+                : 'border-transparent text-ink-soft hover:text-ink'
+            }`}
+          >
+            {CHANNEL_META[ch.type as string]?.label || String(ch.type)}
+          </button>
+        ))}
+      </div>
+
+      {/* Tag filters */}
+      <div className="flex gap-3 mb-6">
         {formatTags.length > 0 && (
           <select
             value={filterTag}
@@ -258,39 +273,58 @@ export default function ConteudoClient({
               <div className="text-sm text-ink-soft">
                 Etiquete publicacoes para ver quais combinacoes funcionam melhor.
               </div>
-            ) : (
-              <div className="space-y-3">
-                {insights.map((ins) => (
-                  <div key={`${ins.channelType}:${ins.tagId}`}>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span
-                        className="w-2 h-2 rounded-full flex-shrink-0"
-                        style={{
-                          backgroundColor:
-                            CHANNEL_META[ins.channelType]?.color || '#999',
-                        }}
-                      />
-                      <span className="text-sm text-ink">{ins.tagName}</span>
+            ) : (() => {
+              const qualified = insights.filter((i) => i.meetsThreshold);
+              const unqualified = insights.filter((i) => !i.meetsThreshold);
+              const best = qualified.slice(0, 3);
+              const worst = [...qualified].reverse().slice(0, 3);
+              return (
+                <div className="space-y-4">
+                  {best.length > 0 && (
+                    <div>
+                      <div className="text-xs font-medium text-positive mb-2">Melhores</div>
+                      <div className="space-y-2">
+                        {best.map((ins) => (
+                          <div key={`best-${ins.channelType}:${ins.tagId}`} className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: CHANNEL_META[ins.channelType]?.color || '#999' }} />
+                              <span className="text-sm text-ink">{ins.tagName}</span>
+                            </div>
+                            <div className="text-sm font-mono tabular-nums text-ink">{Math.round(ins.avg).toLocaleString('pt-BR')}</div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    {ins.meetsThreshold ? (
-                      <div className="text-sm">
-                        <span className="font-mono tabular-nums font-medium text-ink">
-                          {Math.round(ins.avg).toLocaleString('pt-BR')}
-                        </span>
-                        <span className="text-ink-soft"> media</span>
-                        <span className="text-xs text-ink-soft ml-2">
-                          ({ins.count} pecas)
-                        </span>
+                  )}
+                  {worst.length > 0 && best.length > 0 && qualified.length > 3 && (
+                    <div>
+                      <div className="text-xs font-medium text-negative mb-2">Piores</div>
+                      <div className="space-y-2">
+                        {worst.map((ins) => (
+                          <div key={`worst-${ins.channelType}:${ins.tagId}`} className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: CHANNEL_META[ins.channelType]?.color || '#999' }} />
+                              <span className="text-sm text-ink">{ins.tagName}</span>
+                            </div>
+                            <div className="text-sm font-mono tabular-nums text-ink">{Math.round(ins.avg).toLocaleString('pt-BR')}</div>
+                          </div>
+                        ))}
                       </div>
-                    ) : (
-                      <div className="text-xs text-gold">
-                        Faltam {minPieces - ins.count} pecas para gerar indice
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+                    </div>
+                  )}
+                  {unqualified.length > 0 && (
+                    <div className="pt-2 border-t border-line">
+                      <div className="text-xs text-gold mb-2">Dados insuficientes</div>
+                      {unqualified.map((ins) => (
+                        <div key={`unq-${ins.channelType}:${ins.tagId}`} className="text-xs text-ink-soft mb-1">
+                          {ins.tagName}: faltam {minPieces - ins.count} pecas
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </div>
       </div>

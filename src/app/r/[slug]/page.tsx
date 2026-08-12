@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { COVERAGE_THRESHOLD } from '@/lib/config';
 import Link from 'next/link';
+import WhatsAppShare from '@/components/whatsapp-share';
 
 function hashString(str: string): string {
   let hash = 0;
@@ -162,6 +163,7 @@ export default async function PublicReportPage({
       {/* Footer */}
       <footer className="border-t border-line py-8 mt-8">
         <div className="max-w-3xl mx-auto px-6 text-center">
+          <WhatsAppShare brandName={report.brand_name as string} />
           <p className="text-sm text-ink-soft">
             Gerado com <strong className="text-brand">mkt-ops</strong>
           </p>

@@ -3,6 +3,7 @@
 import { useState, useMemo, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { CHANNEL_META } from '@/lib/config';
+import CoverageBar from '@/components/coverage-bar';
 
 interface Props {
   channels: Record<string, unknown>[];
@@ -11,6 +12,7 @@ interface Props {
   metricDefs: Record<string, unknown>[];
   lastSnapshotAt: string | null;
   brandId: string;
+  savedMappings: Record<string, unknown>[];
 }
 
 export default function DadosClient({
@@ -19,6 +21,8 @@ export default function DadosClient({
   metricValues: initMV,
   metricDefs,
   lastSnapshotAt,
+  brandId,
+  savedMappings,
 }: Props) {
   const supabase = createClient();
   const [localMV, setLocalMV] = useState(initMV);
@@ -30,6 +34,14 @@ export default function DadosClient({
   const [pasteMapping, setPasteMapping] = useState<Record<number, string>>({});
   const [pastePreview, setPastePreview] = useState<string[][]>([]);
   const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
+
+  const savedMappingsByType = useMemo(() => {
+    const m = new Map<string, Record<number, string>>();
+    for (const sm of savedMappings) {
+      m.set(sm.channel_type as string, (sm.mapping as Record<string, unknown> || {}) as Record<number, string>);
+    }
+    return m;
+  }, [savedMappings]);
 
   const activeChannel = channels.find((c) => c.id === activeTab);
   const channelType = activeChannel?.type as string;
@@ -132,7 +144,6 @@ export default function DadosClient({
     const rows = pasteText.trim().split('\n').map((r) => r.split('\t'));
     setPastePreview(rows);
 
-    // Auto-detect headers
     if (rows.length > 0) {
       const headers = rows[0];
       const mapping: Record<number, string> = {};
@@ -144,6 +155,17 @@ export default function DadosClient({
         );
         if (match) mapping[i] = match.key as string;
       });
+
+      // Fallback to saved mapping if auto-detect found nothing
+      if (Object.keys(mapping).length === 0 && channelType) {
+        const saved = savedMappingsByType.get(channelType);
+        if (saved) {
+          Object.entries(saved).forEach(([col, key]) => {
+            if (Number(col) < headers.length) mapping[Number(col)] = key as string;
+          });
+        }
+      }
+
       setPasteMapping(mapping);
     }
   }
@@ -163,11 +185,33 @@ export default function DadosClient({
       }
     }
 
+    // Persist mapping for this channel type
+    if (channelType && Object.keys(pasteMapping).length > 0) {
+      await supabase.from('paste_mappings').upsert(
+        {
+          brand_id: brandId,
+          channel_type: channelType,
+          mapping: pasteMapping,
+        },
+        { onConflict: 'brand_id,channel_type' }
+      );
+    }
+
     setShowPasteModal(false);
     setPasteText('');
     setPastePreview([]);
     setPasteMapping({});
   }
+
+  const pubsWithData = useMemo(() => {
+    const filled = new Set(localMV.map((mv) => mv.publication_id as string));
+    return publications.filter((p) => filled.has(p.id as string)).length;
+  }, [localMV, publications]);
+
+  const changedSinceReport = useMemo(() => {
+    if (!lastSnapshotAt) return 0;
+    return localMV.filter((mv) => (mv.entered_at as string) > lastSnapshotAt).length;
+  }, [localMV, lastSnapshotAt]);
 
   if (channels.length === 0) {
     return (
@@ -191,6 +235,27 @@ export default function DadosClient({
           Colar da planilha
         </button>
       </div>
+
+      {/* Live coverage bar */}
+      <div className="bg-surface rounded-md p-3 mb-4 shadow-sm">
+        <div className="text-xs text-ink-soft mb-1">Cobertura</div>
+        <CoverageBar withData={pubsWithData} total={publications.length} />
+      </div>
+
+      {/* Snapshot divergence warning */}
+      {changedSinceReport > 0 && (
+        <div className="bg-negative/10 border border-negative/20 rounded-md px-4 py-3 mb-4 flex items-start gap-2">
+          <span className="text-negative text-sm mt-0.5">!</span>
+          <div className="text-sm text-ink">
+            <strong>{changedSinceReport}</strong> {changedSinceReport === 1 ? 'valor foi alterado' : 'valores foram alterados'} desde
+            o ultimo relatorio publicado
+            {lastSnapshotAt && (
+              <span className="text-ink-soft"> ({new Date(lastSnapshotAt).toLocaleDateString('pt-BR')})</span>
+            )}
+            . Celulas marcadas em vermelho divergem do snapshot.
+          </div>
+        </div>
+      )}
 
       {/* Legend */}
       <div className="flex gap-4 mb-4 text-xs text-ink-soft">
