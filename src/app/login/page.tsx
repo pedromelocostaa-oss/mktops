@@ -13,43 +13,95 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  function translateError(err: { message?: string; code?: string; status?: number } | null): string {
+    if (!err) return 'Algo deu errado. Tente de novo.';
+    const msg = (err.message || '').toLowerCase();
+    const code = err.code || '';
+
+    if (msg.includes('failed to fetch') || msg.includes('networkerror') || msg.includes('load failed')) {
+      return 'Sem conexao com o servidor. Verifique sua internet e tente de novo.';
+    }
+    if (code === 'invalid_credentials' || msg.includes('invalid login') || msg.includes('invalid credentials')) {
+      return 'E-mail ou senha incorretos.';
+    }
+    if (code === 'email_not_confirmed' || msg.includes('email not confirmed')) {
+      return 'Seu e-mail ainda nao foi confirmado. Verifique sua caixa de entrada.';
+    }
+    if (code === 'user_already_exists' || msg.includes('already registered') || msg.includes('user already')) {
+      return 'Ja existe uma conta com esse e-mail. Va para a aba Entrar.';
+    }
+    if (code === 'weak_password' || msg.includes('password should be') || msg.includes('weak password')) {
+      return 'Senha muito fraca. Use pelo menos 6 caracteres.';
+    }
+    if (code === 'validation_failed' || msg.includes('invalid email')) {
+      return 'E-mail invalido. Verifique o formato (ex: nome@dominio.com).';
+    }
+    if (code === 'over_email_send_rate_limit' || msg.includes('rate limit')) {
+      return 'Muitas tentativas. Aguarde alguns minutos antes de tentar de novo.';
+    }
+    if (err.status === 500 || err.status === 502 || err.status === 503) {
+      return 'Servidor temporariamente indisponivel. Tente de novo em instantes.';
+    }
+    return err.message || 'Algo deu errado. Tente de novo.';
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
     setError('');
 
-    const supabase = createClient();
-
-    if (mode === 'login') {
-      const { error: err } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (err) {
-        setError('Email ou senha incorretos');
-        setLoading(false);
-        return;
-      }
-    } else {
-      if (password.length < 6) {
-        setError('A senha precisa ter pelo menos 6 caracteres');
-        setLoading(false);
-        return;
-      }
-      const { error: err } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { full_name: name.trim() || null } },
-      });
-      if (err) {
-        setError(err.message);
-        setLoading(false);
-        return;
-      }
+    if (!email.includes('@') || !email.includes('.')) {
+      setError('Digite um e-mail valido (ex: nome@dominio.com).');
+      return;
+    }
+    if (mode === 'signup' && password.length < 6) {
+      setError('A senha precisa ter pelo menos 6 caracteres.');
+      return;
+    }
+    if (mode === 'signup' && !name.trim()) {
+      setError('Digite seu nome para criar a conta.');
+      return;
     }
 
-    router.push('/');
-    router.refresh();
+    setLoading(true);
+
+    try {
+      const supabase = createClient();
+
+      if (mode === 'login') {
+        const { error: err } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+        if (err) {
+          setError(translateError(err));
+          setLoading(false);
+          return;
+        }
+      } else {
+        const { data, error: err } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: { data: { full_name: name.trim() || null } },
+        });
+        if (err) {
+          setError(translateError(err));
+          setLoading(false);
+          return;
+        }
+        if (!data.session) {
+          setError('Conta criada, mas o login automatico falhou. Va para Entrar e use seu e-mail e senha.');
+          setLoading(false);
+          setMode('login');
+          return;
+        }
+      }
+
+      router.push('/');
+      router.refresh();
+    } catch (err: unknown) {
+      setError(translateError(err as { message?: string }));
+      setLoading(false);
+    }
   }
 
   return (
